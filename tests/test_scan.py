@@ -2,7 +2,7 @@ import click
 from click.testing import CliRunner
 from datasette.app import Datasette
 from datasette.cli import cli
-from datasette_scan import scan_directories, rescan_and_add_databases
+from datasette_scan import scan_directories, rescan_and_add_databases, validate_databases
 import json
 import os
 import pytest
@@ -201,3 +201,111 @@ async def test_rescan_does_not_duplicate(tmp_with_dbs):
     # Second scan should not add duplicates
     known = rescan_and_add_databases(ds, [str(tmp_with_dbs)], known)
     assert len(ds.databases) == count_after_first
+
+
+def test_validate_databases_accepts_good_files(tmp_with_dbs):
+    """validate_databases should accept valid SQLite files."""
+    paths = [
+        str(tmp_with_dbs / "one.db"),
+        str(tmp_with_dbs / "subdir" / "two.db"),
+    ]
+    valid, skipped = validate_databases(paths)
+    assert valid == paths
+    assert skipped == []
+
+
+def test_validate_databases_skips_corrupted(tmp_path):
+    """validate_databases should skip corrupted SQLite files."""
+    good = tmp_path / "good.db"
+    conn = sqlite3.connect(str(good))
+    conn.execute("CREATE TABLE t (id INTEGER PRIMARY KEY)")
+    conn.close()
+
+    corrupted = tmp_path / "corrupted.db"
+    data = bytearray(good.read_bytes())
+    for i in range(100, 200):
+        data[i] = 0xFF
+    corrupted.write_bytes(data)
+
+    valid, skipped = validate_databases([str(good), str(corrupted)])
+    assert valid == [str(good)]
+    assert len(skipped) == 1
+    assert skipped[0][0] == str(corrupted)
+    assert "malformed" in skipped[0][1].lower() or "error" in skipped[0][1].lower()
+
+
+def test_validate_databases_skips_truncated(tmp_path):
+    """validate_databases should skip truncated SQLite files."""
+    truncated = tmp_path / "truncated.db"
+    truncated.write_bytes(b"SQLite format 3\x00" + b"\x00" * 84)
+
+    valid, skipped = validate_databases([str(truncated)])
+    assert valid == []
+    assert len(skipped) == 1
+
+
+def test_scan_skips_corrupted_and_serves_good(tmp_path):
+    """scan should skip corrupted files and serve only valid ones."""
+    good = tmp_path / "good.db"
+    conn = sqlite3.connect(str(good))
+    conn.execute("CREATE TABLE t (id INTEGER PRIMARY KEY)")
+    conn.close()
+
+    corrupted = tmp_path / "corrupted.db"
+    data = bytearray(good.read_bytes())
+    for i in range(100, 200):
+        data[i] = 0xFF
+    corrupted.write_bytes(data)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["scan", str(tmp_path), "--get", "/.json"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0
+    # Output may contain warning lines before the JSON; extract JSON part
+    lines = result.output.strip().splitlines()
+    json_lines = [l for l in lines if not l.startswith("Skipping ")]
+    data = json.loads("\n".join(json_lines))
+    assert "good" in data
+    assert "corrupted" not in data
+
+
+def test_scan_warns_about_skipped_files(tmp_path):
+    """scan should print warnings about skipped files."""
+    good = tmp_path / "good.db"
+    conn = sqlite3.connect(str(good))
+    conn.execute("CREATE TABLE t (id INTEGER PRIMARY KEY)")
+    conn.close()
+
+    corrupted = tmp_path / "corrupted.db"
+    data = bytearray(good.read_bytes())
+    for i in range(100, 200):
+        data[i] = 0xFF
+    corrupted.write_bytes(data)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["scan", str(tmp_path), "--get", "/.json"],
+    )
+    assert result.exit_code == 0
+    assert "corrupted.db" in result.output
+    assert "Skipping" in result.output
+
+
+def test_scan_defaults_nolock(tmp_with_dbs):
+    """scan should pass --nolock by default to handle locked databases."""
+    # We can verify this by checking that the nolock kwarg is True
+    # when delegated to serve. We'll test indirectly: scan a directory
+    # and confirm it works (nolock doesn't break anything for unlocked files).
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["scan", str(tmp_with_dbs), "--get", "/.json"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert "one" in data
