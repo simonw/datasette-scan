@@ -42,18 +42,14 @@ def scan_directories(directories):
     """
     binary = sqlite_scanner.get_binary_path()
     if not os.path.exists(binary):
-        raise click.ClickException(
-            f"sqlite-scanner binary not found at {binary}"
-        )
+        raise click.ClickException(f"sqlite-scanner binary not found at {binary}")
     result = subprocess.run(
         [binary, "--jsonl"] + list(directories),
         capture_output=True,
         text=True,
     )
     if result.returncode != 0:
-        raise click.ClickException(
-            f"sqlite-scanner failed: {result.stderr.strip()}"
-        )
+        raise click.ClickException(f"sqlite-scanner failed: {result.stderr.strip()}")
     paths = []
     for line in result.stdout.strip().splitlines():
         if line:
@@ -122,9 +118,7 @@ def register_commands(cli):
         if scanned_files:
             valid, skipped = validate_databases(scanned_files, nolock=True)
             for path, reason in skipped:
-                click.echo(
-                    f"Skipping {path}: {reason}", err=True
-                )
+                click.echo(f"Skipping {path}: {reason}", err=True)
             db_files.extend(valid)
 
         # Always use nolock for safety with discovered files

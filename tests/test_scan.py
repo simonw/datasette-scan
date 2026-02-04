@@ -2,7 +2,11 @@ import click
 from click.testing import CliRunner
 from datasette.app import Datasette
 from datasette.cli import cli
-from datasette_scan import scan_directories, rescan_and_add_databases, validate_databases
+from datasette_scan import (
+    scan_directories,
+    rescan_and_add_databases,
+    validate_databases,
+)
 import json
 import os
 import pytest
@@ -50,9 +54,7 @@ def test_scan_has_serve_options():
     serve_option_names = {
         p.name for p in serve_cmd.params if isinstance(p, click.Option)
     }
-    scan_option_names = {
-        p.name for p in scan_cmd.params if isinstance(p, click.Option)
-    }
+    scan_option_names = {p.name for p in scan_cmd.params if isinstance(p, click.Option)}
     # All serve options except nolock should be present on scan
     # nolock is always enabled for scan and not exposed as an option
     missing = serve_option_names - scan_option_names - {"nolock"}
@@ -62,9 +64,7 @@ def test_scan_has_serve_options():
 def test_scan_has_scan_interval_option():
     """scan should have the --scan-interval option that serve doesn't."""
     scan_cmd = cli.commands["scan"]
-    scan_option_names = {
-        p.name for p in scan_cmd.params if isinstance(p, click.Option)
-    }
+    scan_option_names = {p.name for p in scan_cmd.params if isinstance(p, click.Option)}
     assert "scan_interval" in scan_option_names
 
 
@@ -80,9 +80,7 @@ def test_scan_directories_finds_sqlite_files(tmp_with_dbs):
 def test_scan_default_scans_current_directory(tmp_with_dbs):
     """With no args, scan should scan the current directory."""
     runner = CliRunner()
-    result = runner.invoke(
-        cli, ["scan", "--get", "/.json"], catch_exceptions=False
-    )
+    result = runner.invoke(cli, ["scan", "--get", "/.json"], catch_exceptions=False)
     # We just need it to not error - with no SQLite in cwd it may serve
     # empty but should not crash
     assert result.exit_code == 0
