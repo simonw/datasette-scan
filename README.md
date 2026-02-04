@@ -49,6 +49,16 @@ All options accepted by `datasette serve` are also accepted by `datasette scan` 
 - If no positional arguments are given, the current directory (`.`) is scanned.
 - Discovered files are then served as if you had run `datasette serve file1.db file2.db ...`.
 
+### Continuous scanning
+
+Use `--scan-interval` to periodically re-scan directories for new SQLite files while the server is running. New databases will be added automatically.
+
+```bash
+datasette scan /data --scan-interval 5
+```
+
+This re-scans every 5 seconds. Any new SQLite files that appear in the scanned directories will be added to the running Datasette instance without a restart.
+
 ### Examples
 
 Scan the current directory and open in a browser:
