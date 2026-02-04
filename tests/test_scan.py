@@ -44,7 +44,7 @@ def test_scan_command_exists():
 
 
 def test_scan_has_serve_options():
-    """scan should have all of serve's options so it can pass them through."""
+    """scan should have all of serve's options (except nolock, always enabled)."""
     serve_cmd = cli.commands["serve"]
     scan_cmd = cli.commands["scan"]
     serve_option_names = {
@@ -53,8 +53,9 @@ def test_scan_has_serve_options():
     scan_option_names = {
         p.name for p in scan_cmd.params if isinstance(p, click.Option)
     }
-    # All serve options should be present on scan
-    missing = serve_option_names - scan_option_names
+    # All serve options except nolock should be present on scan
+    # nolock is always enabled for scan and not exposed as an option
+    missing = serve_option_names - scan_option_names - {"nolock"}
     assert not missing, f"scan is missing these serve options: {missing}"
 
 

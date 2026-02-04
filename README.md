@@ -64,7 +64,7 @@ This re-scans every 5 seconds. Any new SQLite files that appear in the scanned d
 Since `datasette scan` discovers files automatically, it takes precautions against problematic databases:
 
 - **Corrupted files are skipped.** Each discovered file is validated by running `SELECT * FROM sqlite_master` before it is served. Files that fail this check are skipped with a warning to stderr.
-- **Locked files are handled safely.** The `--nolock` flag is enabled by default, so databases locked by another process are opened in read-only mode instead of causing the server to fail.
+- **Locked files are handled safely.** Databases locked by another process are opened in read-only mode instead of causing the server to fail. (The `--nolock` option from `datasette serve` is always enabled and not exposed as a separate flag.)
 
 These protections apply to files discovered by scanning directories. Explicit file arguments are passed through to `datasette serve` without validation.
 

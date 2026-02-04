@@ -124,9 +124,8 @@ def register_commands(cli):
                 )
             db_files.extend(valid)
 
-        # Default to --nolock for safety with discovered files
-        if "nolock" in kwargs and not kwargs["nolock"]:
-            kwargs["nolock"] = True
+        # Always use nolock for safety with discovered files
+        kwargs["nolock"] = True
 
         if scan_interval is not None and directories:
             # Continuous scanning mode: build and run the server ourselves
@@ -180,8 +179,9 @@ def register_commands(cli):
             ctx = click.get_current_context()
             ctx.invoke(serve_cmd, files=tuple(db_files), **kwargs)
 
-    # Copy all options from serve to scan (but not arguments)
+    # Copy all options from serve to scan (but not arguments),
+    # excluding --nolock which is always enabled for scan
     if serve_cmd:
         for param in serve_cmd.params:
-            if isinstance(param, click.Option):
+            if isinstance(param, click.Option) and param.name != "nolock":
                 scan.params.append(param)
