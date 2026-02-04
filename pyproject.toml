@@ -1,6 +1,6 @@
 [project]
 name = "datasette-scan"
-version = "0.1"
+version = "0.1.1"
 description = "Datasette plugin for scanning for SQLite files"
 readme = "README.md"
 authors = [{name = "Simon Willison"}]
