@@ -2,7 +2,7 @@ import click
 from click.testing import CliRunner
 from datasette.app import Datasette
 from datasette.cli import cli
-from datasette_scan import scan_directories
+from datasette_scan import scan_directories, rescan_and_add_databases
 import json
 import os
 import pytest
@@ -166,3 +166,38 @@ def test_scan_passes_port_option(tmp_with_dbs):
         catch_exceptions=False,
     )
     assert result.exit_code == 0
+
+
+@pytest.mark.asyncio
+async def test_rescan_adds_new_databases(tmp_with_dbs):
+    """rescan_and_add_databases should add newly discovered files to Datasette."""
+    # Start with one.db already known
+    db1 = str(tmp_with_dbs / "one.db")
+    ds = Datasette([db1])
+    known = {db1}
+    initial_db_count = len(ds.databases)
+
+    # Rescan should find two.db and add it
+    known = rescan_and_add_databases(ds, [str(tmp_with_dbs)], known)
+    assert len(ds.databases) > initial_db_count
+    db_names = set(ds.databases.keys())
+    assert "two" in db_names
+
+    # The new file should now be in known
+    two_path = str(tmp_with_dbs / "subdir" / "two.db")
+    assert two_path in known
+
+
+@pytest.mark.asyncio
+async def test_rescan_does_not_duplicate(tmp_with_dbs):
+    """rescan_and_add_databases should not re-add already known files."""
+    ds = Datasette([])
+    known = set()
+
+    # First scan adds files
+    known = rescan_and_add_databases(ds, [str(tmp_with_dbs)], known)
+    count_after_first = len(ds.databases)
+
+    # Second scan should not add duplicates
+    known = rescan_and_add_databases(ds, [str(tmp_with_dbs)], known)
+    assert len(ds.databases) == count_after_first
