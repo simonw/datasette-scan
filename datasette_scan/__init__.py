@@ -4,7 +4,6 @@ import click
 import json
 import os
 import sqlite3
-import stat
 import subprocess
 import sys
 import threading
@@ -43,11 +42,6 @@ def scan_directories(directories):
         raise click.ClickException(
             f"sqlite-scanner binary not found at {binary}"
         )
-    # Ensure binary is executable (wheel installs may not preserve permissions)
-    if sys.platform != "win32":
-        current_mode = os.stat(binary).st_mode
-        if not (current_mode & stat.S_IXUSR):
-            os.chmod(binary, current_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     result = subprocess.run(
         [binary, "--jsonl"] + list(directories),
         capture_output=True,
