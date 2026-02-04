@@ -3,12 +3,33 @@ from datasette.database import Database
 import click
 import json
 import os
+import sqlite3
 import subprocess
 import sys
 import threading
 import time
 
 import sqlite_scanner
+
+
+def validate_databases(paths):
+    """Check each path is a readable SQLite database.
+
+    Returns (valid, skipped) where skipped is a list of (path, reason) tuples.
+    """
+    valid = []
+    skipped = []
+    for path in paths:
+        try:
+            conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+            try:
+                conn.execute("SELECT * FROM sqlite_master")
+                valid.append(path)
+            finally:
+                conn.close()
+        except Exception as e:
+            skipped.append((path, str(e)))
+    return valid, skipped
 
 
 def scan_directories(directories):
@@ -90,9 +111,22 @@ def register_commands(cli):
                 db_files.append(p)
 
         # Scan directories for SQLite files
+        scanned_files = []
         if directories:
-            found = scan_directories(directories)
-            db_files.extend(found)
+            scanned_files = scan_directories(directories)
+
+        # Validate scanned files, skip corrupted ones
+        if scanned_files:
+            valid, skipped = validate_databases(scanned_files)
+            for path, reason in skipped:
+                click.echo(
+                    f"Skipping {path}: {reason}", err=True
+                )
+            db_files.extend(valid)
+
+        # Default to --nolock for safety with discovered files
+        if "nolock" in kwargs and not kwargs["nolock"]:
+            kwargs["nolock"] = True
 
         if scan_interval is not None and directories:
             # Continuous scanning mode: build and run the server ourselves
