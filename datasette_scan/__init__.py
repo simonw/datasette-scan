@@ -12,16 +12,19 @@ import time
 import sqlite_scanner
 
 
-def validate_databases(paths):
+def validate_databases(paths, nolock=False):
     """Check each path is a readable SQLite database.
 
     Returns (valid, skipped) where skipped is a list of (path, reason) tuples.
     """
     valid = []
     skipped = []
+    qs = "?mode=ro"
+    if nolock:
+        qs += "&nolock=1"
     for path in paths:
         try:
-            conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+            conn = sqlite3.connect(f"file:{path}{qs}", uri=True)
             try:
                 conn.execute("SELECT * FROM sqlite_master")
                 valid.append(path)
@@ -117,7 +120,7 @@ def register_commands(cli):
 
         # Validate scanned files, skip corrupted ones
         if scanned_files:
-            valid, skipped = validate_databases(scanned_files)
+            valid, skipped = validate_databases(scanned_files, nolock=True)
             for path, reason in skipped:
                 click.echo(
                     f"Skipping {path}: {reason}", err=True
